@@ -7,7 +7,6 @@ from typing import Any, Sequence
 import requests
 
 
-
 DEFAULT_BASE = "http://127.0.0.1:11434"
 DEFAULT_MODEL = "qwen2.5:0.5b"
 DEFAULT_MD = "report.md"
@@ -25,9 +24,7 @@ DEFAULT_PROMPTS = [
 ]
 
 
-
 class Exchange(BaseModel):
-
     prompt: str
     answer: str
     seconds: float
@@ -53,22 +50,20 @@ def ollama_generate_once(
     Returns:
         Ответ на промт от модели.
     """
-    
+
     endpoint = base_url + "/api/generate"
-    
+
     body: dict[str, Any] = {
         "model": model,
         "prompt": text_prompt,
         "stream": False,
     }
-    
+
     response = session.post(endpoint, json=body, timeout=timeout)
-    
+
     if response.status_code != 200:
         raise requests.HTTPError("Не удалось получить ответ")
     return response.json()["response"].strip()
-
-
 
 
 def assert_model_available(
@@ -88,7 +83,7 @@ def assert_model_available(
     """
     tags_url = base_url + "/api/tags"
     response = session.get(tags_url, timeout=timeout)
-    
+
     if response.status_code != 200:
         raise requests.HTTPError("Не удалось связаться с Ollama")
 
@@ -124,10 +119,10 @@ def run_prompt_list(
     """
     responses: list[Exchange] = []
     prompts_len = len(prompts)
-    
+
     with requests.Session() as session:
         assert_model_available(session, base_url, model, timeout)
-        
+
         for prompt_index, prompt in enumerate(prompts, start=1):
             time_start = time.perf_counter()
             model_response = ollama_generate_once(
@@ -137,9 +132,7 @@ def run_prompt_list(
             response_duration = time_end - time_start
             responses.append(
                 Exchange(
-                    prompt=prompt, 
-                    answer=model_response, 
-                    seconds=response_duration
+                    prompt=prompt, answer=model_response, seconds=response_duration
                 )
             )
             response_preview = model_response
@@ -148,21 +141,21 @@ def run_prompt_list(
             print(
                 f"[{prompt_index}/{prompts_len}]"
                 f" {response_duration:.1f} second: {response_preview}",
-                flush=True
+                flush=True,
             )
-            
+
     return responses
 
 
 def escape_md_cell(value: str) -> str:
     """
-   Подготовка текста для ячейки Markdown-таблицы.
+    Подготовка текста для ячейки Markdown-таблицы.
 
-    Args:
-        value: Исходная строка.
+     Args:
+         value: Исходная строка.
 
-    Returns:
-        Строка с заменой переносов и экранированием ``|``.
+     Returns:
+         Строка с заменой переносов и экранированием ``|``.
     """
     return value.replace("|", r"\|").replace("\n", "<br>")
 
@@ -193,7 +186,6 @@ def write_markdown_table(path: str, rows: Sequence[Exchange]) -> None:
 
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
-        
 
 
 def load_prompts_file(path: str) -> list[str]:
@@ -220,7 +212,9 @@ def parse_cli() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="HTTP-запросы к Ollama.")
     parser.add_argument("--base-url", default=DEFAULT_BASE, help="Корень Ollama API")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Тег модели")
-    parser.add_argument("--timeout", type=float, default=200.0, help="Таймаут одного запроса, с")
+    parser.add_argument(
+        "--timeout", type=float, default=200.0, help="Таймаут одного запроса, с"
+    )
     parser.add_argument("--md-out", default=DEFAULT_MD, help="Путь Markdown-отчёта")
     parser.add_argument("--prompts-file", default=None, help="Файл со своими промптами")
     return parser.parse_args(sys.argv[1:])
@@ -228,11 +222,11 @@ def parse_cli() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_cli()
-    
+
     prompts = DEFAULT_PROMPTS
     if args.prompts_file:
         prompts = load_prompts_file(args.prompts_file)
-    
+
     responses = run_prompt_list(args.base_url, args.model, prompts, args.timeout)
     write_markdown_table(args.md_out, responses)
 
